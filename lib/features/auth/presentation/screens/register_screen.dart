@@ -199,9 +199,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 // Register button
                 SizedBox(
                   height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleRegister,
-                    child: _isLoading
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primaryColor, AppColors.primaryLight],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryGlow,
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleRegister,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isLoading
                         ? const SizedBox(
                             width: 20,
                             height: 20,
@@ -215,6 +238,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             'Create Account',
                             style: AppTextStyles.button,
                           ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppConstants.paddingMedium),

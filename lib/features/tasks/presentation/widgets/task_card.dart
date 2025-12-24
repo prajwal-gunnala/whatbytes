@@ -24,13 +24,37 @@ class TaskCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isOverdue = DateFormatter.isOverdue(task.dueDate, task.isCompleted);
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.bgSecondary,
+            AppColors.bgSecondary.withValues(alpha: 0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.borderColor.withValues(alpha: 0.5),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -141,6 +165,7 @@ class TaskCard extends ConsumerWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -156,14 +181,21 @@ class _PriorityBadge extends StatelessWidget {
     final color = AppColors.getPriorityColor(priority);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
+          color: color.withValues(alpha: 0.4),
+          width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.2),
+            blurRadius: 8,
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Text(
         priority.displayName,

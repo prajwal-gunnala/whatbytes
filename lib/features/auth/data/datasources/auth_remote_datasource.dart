@@ -107,17 +107,35 @@ class AuthRemoteDataSource {
       final user = currentUser;
       if (user == null) return null;
 
-      final userDoc = await _firestore
-          .collection(FirebaseConstants.usersCollection)
-          .doc(user.uid)
-          .get();
-
-      if (!userDoc.exists) return null;
-
-      return UserModel.fromJson(userDoc.data()!);
+      return await _getOrCreateUserData(user);
     } catch (e) {
       throw Exception('Failed to get user data: ${e.toString()}');
     }
+  }
+
+  Future<UserModel> _getOrCreateUserData(User firebaseUser) async {
+    final userDocRef = _firestore
+        .collection(FirebaseConstants.usersCollection)
+        .doc(firebaseUser.uid);
+
+    final userDoc = await userDocRef.get();
+    if (userDoc.exists && userDoc.data() != null) {
+      return UserModel.fromJson(userDoc.data()!);
+    }
+
+    final email = firebaseUser.email;
+    if (email == null || email.isEmpty) {
+      throw Exception('Firebase user email is missing');
+    }
+
+    final createdUser = UserModel.fromFirebaseUser(
+      firebaseUser.uid,
+      email,
+      firebaseUser.displayName,
+    );
+
+    await userDocRef.set(createdUser.toJson());
+    return createdUser;
   }
 
   /// Stream of auth state changes
@@ -125,8 +143,26 @@ class AuthRemoteDataSource {
     return _firebaseAuth.authStateChanges();
   }
 
+  /// Stream of user entities derived from auth state
+  Stream<UserModel?> userModelChanges() {
+    return authStateChanges().asyncMap((firebaseUser) async {
+      if (firebaseUser == null) return null;
+      return _getOrCreateUserData(firebaseUser);
+    });
+  }
+
   /// Handle Firebase Auth exceptions
   String _handleAuthException(FirebaseAuthException e) {
+    final message = e.message ?? '';
+
+    // Common Android misconfiguration seen with Firebase Auth reCAPTCHA/Play Services.
+    // This is not a code bug — usually SHA-1/SHA-256 or google-services.json is outdated.
+    if (message.contains('CONFIGURATION_NOT_FOUND')) {
+      return 'Firebase Auth is not fully configured for this Android app (CONFIGURATION_NOT_FOUND).\n'
+          'Fix: Firebase Console → Project Settings → Your apps (Android) → add SHA-1 & SHA-256 → download the updated google-services.json and replace android/app/google-services.json.\n'
+          'Then run: flutter clean && flutter run.';
+    }
+
     switch (e.code) {
       case 'user-not-found':
         return 'No user found with this email';
@@ -145,7 +181,8 @@ class AuthRemoteDataSource {
       case 'network-request-failed':
         return 'Network error. Check your connection';
       default:
-        return e.message ?? 'Authentication failed';
+        if (message.isNotEmpty) return message;
+        return 'Authentication failed';
     }
   }
 }

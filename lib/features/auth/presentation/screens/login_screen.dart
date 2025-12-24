@@ -5,6 +5,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/utils/snackbar_helper.dart';
+import '../../../../core/utils/page_transitions.dart';
 import '../providers/auth_providers.dart';
 import 'register_screen.dart';
 
@@ -136,9 +137,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // Login button
                 SizedBox(
                   height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    child: _isLoading
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primaryColor, AppColors.primaryLight],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryGlow,
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isLoading
                         ? const SizedBox(
                             width: 20,
                             height: 20,
@@ -152,6 +176,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             'Sign In',
                             style: AppTextStyles.button,
                           ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppConstants.paddingMedium),
@@ -170,7 +195,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? null
                           : () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(
+                                FadePageRoute(
                                   builder: (_) => const RegisterScreen(),
                                 ),
                               );

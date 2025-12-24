@@ -4,13 +4,60 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/snackbar_helper.dart';
+import '../../../../core/utils/page_transitions.dart';
 import '../providers/task_providers.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../widgets/task_card.dart';
 import 'add_edit_task_screen.dart';
 
 class TaskListScreen extends ConsumerWidget {
-  const TaskListScreen({super.key});
+  final VoidCallback? onProfileTap;
+
+  const TaskListScreen({super.key, this.onProfileTap});
+
+  void _showDeleteDialog(BuildContext context, WidgetRef ref, String taskId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Task', style: AppTextStyles.h3),
+        content: Text(
+          'Are you sure you want to delete this task?',
+          style: AppTextStyles.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.labelLarge.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              final success = await ref
+                  .read(taskNotifierProvider.notifier)
+                  .deleteTask(taskId);
+
+              if (success && context.mounted) {
+                SnackbarHelper.showSuccess(
+                  context,
+                  AppConstants.taskDeletedMsg,
+                );
+              }
+            },
+            child: Text(
+              'Delete',
+              style: AppTextStyles.labelLarge.copyWith(
+                color: AppColors.errorColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -173,12 +220,9 @@ class TaskListScreen extends ConsumerWidget {
               ),
             ],
           ),
-          // Logout button
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
+            icon: const Icon(Icons.person_outline),
+            onPressed: onProfileTap,
           ),
         ],
       ),
@@ -198,32 +242,41 @@ class TaskListScreen extends ConsumerWidget {
               itemCount: tasks.length,
               itemBuilder: (context, index) {
                 final task = tasks[index];
-                return TaskCard(
-                  task: task,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => AddEditTaskScreen(task: task),
-                      ),
-                    );
-                  },
-                  onToggle: () async {
-                    final success = await ref
-                        .read(taskNotifierProvider.notifier)
-                        .toggleTaskCompletion(task.id);
+                return AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: 1.0,
+                  child: AnimatedSlide(
+                    duration: const Duration(milliseconds: 400),
+                    offset: Offset.zero,
+                    curve: Curves.easeOutCubic,
+                    child: TaskCard(
+                      task: task,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          SlideUpPageRoute(
+                            builder: (_) => AddEditTaskScreen(task: task),
+                          ),
+                        );
+                      },
+                      onToggle: () async {
+                        final success = await ref
+                            .read(taskNotifierProvider.notifier)
+                            .toggleTaskCompletion(task.id);
 
-                    if (success && context.mounted) {
-                      SnackbarHelper.showSuccess(
-                        context,
-                        task.isCompleted
-                            ? AppConstants.taskIncompletedMsg
-                            : AppConstants.taskCompletedMsg,
-                      );
-                    }
-                  },
-                  onDelete: () {
-                    _showDeleteDialog(context, ref, task.id);
-                  },
+                        if (success && context.mounted) {
+                          SnackbarHelper.showSuccess(
+                            context,
+                            task.isCompleted
+                                ? AppConstants.taskIncompletedMsg
+                                : AppConstants.taskCompletedMsg,
+                          );
+                        }
+                      },
+                      onDelete: () {
+                        _showDeleteDialog(context, ref, task.id);
+                      },
+                    ),
+                  ),
                 );
               },
             ),
@@ -244,10 +297,7 @@ class TaskListScreen extends ConsumerWidget {
                 color: AppColors.errorColor,
               ),
               const SizedBox(height: 16),
-              Text(
-                'Error loading tasks',
-                style: AppTextStyles.h3,
-              ),
+              Text('Error loading tasks', style: AppTextStyles.h3),
               const SizedBox(height: 8),
               Text(
                 error.toString(),
@@ -258,60 +308,26 @@ class TaskListScreen extends ConsumerWidget {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const AddEditTaskScreen(),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accentGlow,
+              blurRadius: 24,
+              spreadRadius: 4,
             ),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  void _showDeleteDialog(BuildContext context, WidgetRef ref, String taskId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete Task', style: AppTextStyles.h3),
-        content: Text(
-          'Are you sure you want to delete this task?',
-          style: AppTextStyles.bodyMedium,
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: AppTextStyles.labelLarge.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              final success = await ref
-                  .read(taskNotifierProvider.notifier)
-                  .deleteTask(taskId);
-
-              if (success && context.mounted) {
-                SnackbarHelper.showSuccess(
-                  context,
-                  AppConstants.taskDeletedMsg,
-                );
-              }
-            },
-            child: Text(
-              'Delete',
-              style: AppTextStyles.labelLarge.copyWith(
-                color: AppColors.errorColor,
-              ),
-            ),
-          ),
-        ],
+        child: FloatingActionButton(
+          onPressed: () {
+            Navigator.of(
+              context,
+            ).push(SlideUpPageRoute(builder: (_) => const AddEditTaskScreen()));
+          },
+          elevation: 0,
+          child: const Icon(Icons.add, size: 28),
+        ),
       ),
     );
   }
@@ -345,11 +361,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 80,
-            color: AppColors.textTertiary,
-          ),
+          Icon(icon, size: 80, color: AppColors.textTertiary),
           const SizedBox(height: 24),
           Text(
             message,

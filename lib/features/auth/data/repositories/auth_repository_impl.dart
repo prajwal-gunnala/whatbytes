@@ -62,9 +62,6 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Stream<UserEntity?> authStateChanges() {
-    return _remoteDataSource.authStateChanges().asyncMap((firebaseUser) async {
-      if (firebaseUser == null) return null;
-      return await _remoteDataSource.getCurrentUserData();
-    });
+    return _remoteDataSource.userModelChanges();
   }
 }

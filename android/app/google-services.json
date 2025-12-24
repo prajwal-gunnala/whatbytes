@@ -12,7 +12,16 @@
           "package_name": "com.example.whatbytes"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "829276128050-j8du4794nun073hokm8430t1dc6cbhb7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.whatbytes",
+            "certificate_hash": "4ec417884183a8d9639e6a86268e03ca924bcbb8"
+          }
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDFx071K54UrqStqEHYnOA3_JU6KJ5Gr7I"
