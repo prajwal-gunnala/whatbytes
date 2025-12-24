@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // OPEN TEST RULES: Permit all reads/writes during testing
+    // IMPORTANT: Lock down before production.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
