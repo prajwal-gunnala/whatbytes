@@ -1,323 +1,295 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-import 'core/theme/app_theme.dart';
-import 'core/theme/app_colors.dart';
-import 'core/constants/app_constants.dart';
-import 'features/auth/presentation/providers/auth_providers.dart';
-import 'features/auth/presentation/screens/login_screen.dart';
-import 'features/home/presentation/screens/home_shell.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
+final FlutterLocalNotificationsPlugin notificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+
+  tz.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
+
+  debugPrint('Initializing notifications with icon: notification');
+  const androidSettings = AndroidInitializationSettings('notification');
+  const iosSettings = DarwinInitializationSettings();
+  const initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
   );
-  
-  // Set system UI overlay style (status bar)
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ),
+
+  await notificationsPlugin.initialize(
+    initSettings,
+    onDidReceiveNotificationResponse: (details) {
+      debugPrint('Notification clicked: ${details.payload}');
+    },
   );
-  
-  runApp(
-    // Wrap app with ProviderScope for Riverpod
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  debugPrint('Notification plugin initialized');
+
+  runApp(const MyApp());
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: const StartupGate(),
-    );
-  }
-}
-
-/// Ensures the splash screen is visible for a minimum duration.
-class StartupGate extends StatefulWidget {
-  const StartupGate({super.key});
-
-  @override
-  State<StartupGate> createState() => _StartupGateState();
-}
-
-class _StartupGateState extends State<StartupGate> {
-  static const _minSplashDuration = Duration(milliseconds: 3000);
-  bool _showSplash = true;
-
-  @override
-  void initState() {
-    super.initState();
-    Future<void>.delayed(_minSplashDuration).then((_) {
-      if (!mounted) return;
-      setState(() => _showSplash = false);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 450),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        return FadeTransition(opacity: animation, child: child);
-      },
-      child: _showSplash
-          ? const SplashScreen(key: ValueKey('splash'))
-          : const AuthStateHandler(key: ValueKey('auth')),
+    return MaterialApp(
+      title: 'BurnMate',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+      ),
+      home: const HomePage(),
     );
   }
 }
 
-/// Handles auth state and navigates to appropriate screen
-class AuthStateHandler extends ConsumerWidget {
-  const AuthStateHandler({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateProvider);
-
-    return authState.when(
-      data: (user) {
-        if (user == null) {
-          return const LoginScreen();
-        } 
-        // User is authenticated - show home shell (Tasks/Profile)
-        return const HomeShell();
-      },
-      loading: () => const SplashScreen(),
-      error: (error, _) => const LoginScreen(),
-    );
-  }
+  State<HomePage> createState() => _HomePageState();
 }
 
-// Splash screen widget with animations
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _logoController;
-  late AnimationController _textController;
-  late AnimationController _progressController;
-  late Animation<double> _logoScale;
-  late Animation<double> _logoOpacity;
-  late Animation<double> _textOpacity;
-  late Animation<Offset> _textSlide;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Logo animation (scale + fade)
-    _logoController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _logoScale = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.easeOutBack),
-    );
-    _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.easeIn),
-    );
-
-    // Text animation (slide up + fade)
-    _textController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeIn),
-    );
-    _textSlide = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic),
-    );
-
-    // Progress animation (rotate)
-    _progressController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat();
-
-    // Start animations
-    _logoController.forward().then((_) {
-      _textController.forward();
-    });
-  }
+class _HomePageState extends State<HomePage> {
+  String _status = 'Ready';
+  int _notificationId = 0;
+  final TextEditingController _titleController = TextEditingController(
+    text: 'Reminder',
+  );
+  final TextEditingController _bodyController = TextEditingController(
+    text: 'This is your scheduled notification!',
+  );
 
   @override
   void dispose() {
-    _logoController.dispose();
-    _textController.dispose();
-    _progressController.dispose();
+    _titleController.dispose();
+    _bodyController.dispose();
     super.dispose();
+  }
+
+  Future<void> _scheduleNotification() async {
+    final title = _titleController.text.trim();
+    final body = _bodyController.text.trim();
+
+    if (title.isEmpty || body.isEmpty) {
+      setState(() => _status = 'Title and Body cannot be empty');
+      return;
+    }
+
+    setState(() => _status = 'Scheduling...');
+
+    final androidPlugin = notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    if (androidPlugin != null) {
+      await androidPlugin.requestNotificationsPermission();
+    }
+
+    final scheduledTime = tz.TZDateTime.now(
+      tz.local,
+    ).add(const Duration(seconds: 10));
+
+    const androidDetails = AndroidNotificationDetails(
+      'reminder_channel',
+      'Reminders',
+      channelDescription: 'Scheduled reminders',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: 'notification',
+      largeIcon: DrawableResourceAndroidBitmap('burnmate_notification'),
+      color: Colors.blue,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    debugPrint('Scheduling notification with icon: notification');
+
+    try {
+      await notificationsPlugin.zonedSchedule(
+        _notificationId++,
+        title,
+        body,
+        scheduledTime,
+        notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+
+      debugPrint('Notification scheduled successfully');
+
+      setState(
+        () => _status =
+            'Scheduled!\nWill arrive in 10 seconds.\nYou can close the app now.',
+      );
+    } catch (e) {
+      debugPrint('Error scheduling notification: $e');
+      setState(() => _status = 'Error: $e');
+    }
+  }
+
+  Future<void> _sendNow() async {
+    final title = _titleController.text.trim();
+    final body = _bodyController.text.trim();
+
+    if (title.isEmpty || body.isEmpty) {
+      setState(() => _status = 'Title and Body cannot be empty');
+      return;
+    }
+
+    const androidDetails = AndroidNotificationDetails(
+      'instant_channel',
+      'Instant',
+      channelDescription: 'Instant notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: 'notification',
+      largeIcon: DrawableResourceAndroidBitmap('burnmate_notification'),
+      color: Colors.blue,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    try {
+      debugPrint('Showing instant notification with icon: notification');
+      await notificationsPlugin.show(
+        _notificationId++,
+        title,
+        body,
+        notificationDetails,
+      );
+      debugPrint('Instant notification shown successfully');
+      setState(() => _status = 'Notification sent!');
+    } catch (e) {
+      debugPrint('Error showing notification: $e');
+      setState(() => _status = 'Error: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.bgPrimary,
-              AppColors.bgPrimary.withValues(alpha: 0.95),
-              AppColors.bgSecondary.withValues(alpha: 0.3),
-            ],
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Animated logo
-              AnimatedBuilder(
-                animation: _logoController,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _logoScale.value,
-                    child: Opacity(
-                      opacity: _logoOpacity.value,
-                      child: Hero(
-                        tag: 'app_logo',
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primaryGlow,
-                                blurRadius: 40,
-                                spreadRadius: 10,
-                              ),
-                              BoxShadow(
-                                color: AppColors.accentGlow,
-                                blurRadius: 60,
-                                spreadRadius: 5,
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(28),
-                            child: Image.asset(
-                              'assets/logo.png',
-                              width: 120,
-                              height: 120,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                      ),
+      appBar: AppBar(title: const Text('BurnMate'), centerTitle: true),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Image.asset(
+                    'assets/burnmate_logo.png',
+                    width: 112,
+                    height: 112,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'BurnMate Notifications',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Test instant and scheduled local notifications with branded Android large icons.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Notification Title',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter title here',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _bodyController,
+                  decoration: const InputDecoration(
+                    labelText: 'Notification Body',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter body here',
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _scheduleNotification,
+                    icon: const Icon(Icons.schedule),
+                    label: const Text(
+                      'Notify in 10 seconds',
+                      style: TextStyle(fontSize: 18),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 32),
-              // Animated app name with gradient
-              AnimatedBuilder(
-                animation: _textController,
-                builder: (context, child) {
-                  return SlideTransition(
-                    position: _textSlide,
-                    child: FadeTransition(
-                      opacity: _textOpacity,
-                      child: ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [
-                            AppColors.primaryLight,
-                            AppColors.accentColor,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds),
-                        child: const Text(
-                          AppConstants.appName,
-                          style: TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              // Animated tagline
-              AnimatedBuilder(
-                animation: _textController,
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _textOpacity,
-                    child: Text(
-                      AppConstants.appTagline,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: AppColors.textSecondary,
-                        letterSpacing: 0.2,
-                      ),
-                      textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _sendNow,
+                    icon: const Icon(Icons.send),
+                    label: const Text(
+                      'Send Now (Test)',
+                      style: TextStyle(fontSize: 16),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 64),
-              // Animated loading indicator
-              AnimatedBuilder(
-                animation: _progressController,
-                builder: (context, child) {
-                  return Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: SweepGradient(
-                        colors: [
-                          AppColors.accentColor,
-                          AppColors.primaryColor,
-                          AppColors.accentColor,
-                        ],
-                        stops: const [0.0, 0.5, 1.0],
-                        transform: GradientRotation(_progressController.value * 2 * 3.14159),
-                      ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: Container(
-                      margin: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.bgPrimary,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _status,
+                    style: const TextStyle(fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
