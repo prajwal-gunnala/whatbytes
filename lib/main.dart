@@ -1,10 +1,28 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 final FlutterLocalNotificationsPlugin notificationsPlugin =
     FlutterLocalNotificationsPlugin();
+const String conversationShortcutId = 'burnmate_notifications';
+const MethodChannel shortcutsChannel = MethodChannel('burnmate/shortcuts');
+
+Future<void> _configureConversationShortcut() async {
+  if (!Platform.isAndroid) {
+    return;
+  }
+
+  try {
+    await shortcutsChannel.invokeMethod<void>('configureConversationShortcut');
+    debugPrint('Conversation shortcut configured');
+  } catch (e) {
+    debugPrint('Error configuring conversation shortcut: $e');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +45,7 @@ void main() async {
     },
   );
   debugPrint('Notification plugin initialized');
+  await _configureConversationShortcut();
 
   runApp(const MyApp());
 }
@@ -72,6 +91,52 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  NotificationDetails _notificationDetails(String title, String body) {
+    final sender = Person(
+      name: title,
+      key: conversationShortcutId,
+      important: true,
+      icon: const FlutterBitmapAssetAndroidIcon(
+        'assets/burnmate_notification_large.png',
+      ),
+    );
+    final messageStyle = MessagingStyleInformation(
+      const Person(
+        name: 'You',
+        key: 'burnmate_user',
+      ),
+      conversationTitle: title,
+      groupConversation: false,
+      messages: [
+        Message(body, DateTime.now(), sender),
+      ],
+    );
+
+    final androidDetails = AndroidNotificationDetails(
+      'burnmate_channel',
+      'BurnMate Notifications',
+      channelDescription: 'BurnMate local notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: 'notification',
+      category: AndroidNotificationCategory.message,
+      color: Color(0xFF84CC16),
+      shortcutId: conversationShortcutId,
+      styleInformation: messageStyle,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    return NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+  }
+
   Future<void> _scheduleNotification() async {
     final title = _titleController.text.trim();
     final body = _bodyController.text.trim();
@@ -96,27 +161,7 @@ class _HomePageState extends State<HomePage> {
       tz.local,
     ).add(const Duration(seconds: 10));
 
-    const androidDetails = AndroidNotificationDetails(
-      'reminder_channel',
-      'Reminders',
-      channelDescription: 'Scheduled reminders',
-      importance: Importance.max,
-      priority: Priority.high,
-      icon: 'notification',
-      largeIcon: DrawableResourceAndroidBitmap('burnmate_notification'),
-      color: Colors.blue,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+    final notificationDetails = _notificationDetails(title, body);
 
     debugPrint('Scheduling notification with icon: notification');
 
@@ -153,26 +198,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    const androidDetails = AndroidNotificationDetails(
-      'instant_channel',
-      'Instant',
-      channelDescription: 'Instant notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-      icon: 'notification',
-      largeIcon: DrawableResourceAndroidBitmap('burnmate_notification'),
-      color: Colors.blue,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+    final notificationDetails = _notificationDetails(title, body);
 
     try {
       debugPrint('Showing instant notification with icon: notification');
@@ -204,7 +230,7 @@ class _HomePageState extends State<HomePage> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(28),
                   child: Image.asset(
-                    'assets/burnmate_logo.png',
+                    'assets/burnamte_notification.png',
                     width: 112,
                     height: 112,
                     fit: BoxFit.cover,
@@ -220,7 +246,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Test instant and scheduled local notifications with branded Android large icons.',
+                  'Test instant and scheduled local notifications with a messaging-style Android layout.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: Colors.black54),

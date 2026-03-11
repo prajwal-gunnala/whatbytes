@@ -58,6 +58,8 @@ flutter:
   assets:
     - assets/burnmate_logo.png
     - assets/burnamte_notification.png
+    - assets/burnmate_notification_large.png
+    - assets/burnmate_notification_badged.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
